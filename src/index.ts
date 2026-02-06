@@ -1,44 +1,21 @@
 // src/index.ts
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
 
-class OpengravityServer {
-  private server: Server;
+const server = new McpServer({
+  name: "opengravity-server",
+  version: "0.0.0",
+});
 
-  constructor() {
-    this.server = new Server(
-      {
-        name: "opengravity-server",
-        version: "0.1.0",
-      },
-      {
-        capabilities: {
-          resources: {},
-          tools: {},
-          prompts: {},
-        },
-      }
-    );
+async function main() {
+  const transport = new StdioServerTransport();
 
-    this.server.onerror = (error: any) => console.error("[MCP Error]", error);
-
-    process.on("SIGINT", async () => {
-      await this.server.close();
-      process.exit(0);
-    });
-  }
-
-  async run() {
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
-    console.error("Opengravity Server is running on stdio...");
-  }
+  await server.connect(transport);
+  
+  console.error("Opengravity Server is running on stdio...");
 }
 
-const server = new OpengravityServer();
-server.run().catch(console.error);
+main().catch((error) => {
+  console.error("Fatal error in main():", error);
+  process.exit(1);
+});
