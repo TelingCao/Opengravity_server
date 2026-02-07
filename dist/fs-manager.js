@@ -7,41 +7,28 @@ exports.FileSystemManager = void 0;
 // src/fs-manager.ts
 const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
-const PROJECT_ROOT = path_1.default.resolve(__dirname, '..'); // 获取项目根目录
+const PROJECT_ROOT = path_1.default.resolve(__dirname, '..');
 const PERMISSIONS = {
     'codes': 'read',
     'reviews': 'write',
     'notes': 'read',
     'brainstorm': 'write',
     'daily': 'read',
-    'todo': 'write'
+    'todo': 'write',
+    '.coopration': 'write'
 };
 class FileSystemManager {
-    /**
-     * 核心方法: 验证路径安全性并返回绝对路径
-     * @param virtualPath AI 传入的路径 (如 "codes/main.c")
-     * @param allowWrite 是否需要写入权限
-     */
     validatePath(virtualPath, allowWrite) {
-        // 1. 安全标准化: 去除路径中的 '..' 防止目录遍历攻击
-        // 提示: 使用 path.normalize
         const normalizedPath = path_1.default.normalize(virtualPath);
-        // 2. 提取根目录名: 拿到路径的第一段 (比如 "codes")
-        // 提示: 使用 path.sep 进行分割
         const parts = normalizedPath.split(path_1.default.sep);
-        const rootDir = parts[0]; // 强制断言为 AllowedDirectory 类型
-        // 检查 3.1: 这个 rootDir 是否在我们的 PERMISSIONS 表里？如果不在，抛出 Error。
+        const rootDir = parts[0];
         if (!(rootDir in PERMISSIONS)) {
             throw new Error(`Access denied: Directory '${rootDir}' is not managed.`);
         }
-        // 检查 3.2: 如果当前操作要求写入 (allowWrite 为 true)，但该目录权限是 'read'，怎么办？
         if (allowWrite && PERMISSIONS[rootDir] === 'read') {
             throw new Error(`Permission denied: '${rootDir}' is READ-ONLY.`);
         }
-        // 3. 构建绝对路径 (帮你写好了)
         const absolutePath = path_1.default.resolve(PROJECT_ROOT, normalizedPath);
-        // 检查 3.3: 最终检查 (防止这一层漏网之鱼)
-        // 确保 absolutePath 依然是以 PROJECT_ROOT 开头的
         if (!absolutePath.startsWith(PROJECT_ROOT)) {
             throw new Error(`Security violation: Path traversal detected.`);
         }
@@ -65,12 +52,37 @@ class FileSystemManager {
         return await promises_1.default.readFile(fullPath, 'utf-8');
     }
     async writeFile(virtualPath, content) {
-        // [TODO: 这里应该传 true 还是 false?]
         const fullPath = this.validatePath(virtualPath, true);
-        // 确保父目录存在
         await promises_1.default.mkdir(path_1.default.dirname(fullPath), { recursive: true });
         await promises_1.default.writeFile(fullPath, content, 'utf-8');
         return `Successfully wrote to ${virtualPath}`;
+    }
+    /**
+     * coopration
+     * @param virtualPath
+     * @param sender
+     * @param content
+     * @returns
+     */
+    async appendToBlackboard(virtualPath, sender, content) {
+        const fullPath = this.validatePath(virtualPath, true);
+        const timestamp = new Date().toLocaleTimeString();
+        const formattedEntry = `\n---\n### [${timestamp}] ${sender}:\n${content}\n`;
+        await promises_1.default.appendFile(fullPath, formattedEntry, 'utf-8');
+        return `Successfully added to blackboard.`;
+    }
+    async readBlackboard(virtualPath) {
+        try {
+            const rawText = await this.readFile(virtualPath);
+            const allBlocks = rawText.split('###').map(b => b.trim()).filter(b => b !== "");
+            if (allBlocks.length === 0)
+                return "The blackboard is now empty";
+            const lastBlocks = allBlocks.slice(-3);
+            return lastBlocks.map(block => `### ${block}`).join('\n\n');
+        }
+        catch (error) {
+            return "the blackboard hasnt been established, waiting for the first expert.";
+        }
     }
 }
 exports.FileSystemManager = FileSystemManager;
