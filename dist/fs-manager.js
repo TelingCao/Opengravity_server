@@ -3,11 +3,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FileSystemManager = void 0;
+exports.FileSystemManager = exports.SENDER_NAMES = exports.ALLOWED_DIRECTORIES = void 0;
 // src/fs-manager.ts
 const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
 const PROJECT_ROOT = path_1.default.resolve(__dirname, '..');
+exports.ALLOWED_DIRECTORIES = [
+    'codes', 'reviews', 'notes', 'brainstorm', 'daily', 'todo', '.cooperation'
+];
+exports.SENDER_NAMES = ['Architect', 'Critic', 'Zen', 'Historian'];
 const PERMISSIONS = {
     'codes': 'read',
     'reviews': 'write',
@@ -15,22 +19,30 @@ const PERMISSIONS = {
     'brainstorm': 'write',
     'daily': 'read',
     'todo': 'write',
-    '.coopration': 'write'
+    '.cooperation': 'write'
 };
 class FileSystemManager {
+    async ensureDirAndWrite(fullPath, content, append = false) {
+        await promises_1.default.mkdir(path_1.default.dirname(fullPath), { recursive: true });
+        if (append) {
+            await promises_1.default.appendFile(fullPath, content, 'utf-8');
+        }
+        else {
+            await promises_1.default.writeFile(fullPath, content, 'utf-8');
+        }
+    }
     validatePath(virtualPath, allowWrite) {
-        const normalizedPath = path_1.default.normalize(virtualPath);
-        const parts = normalizedPath.split(path_1.default.sep);
-        const rootDir = parts[0];
+        const absolutePath = path_1.default.resolve(PROJECT_ROOT, virtualPath);
+        const relative = path_1.default.relative(PROJECT_ROOT, absolutePath);
+        if (relative.startsWith('..') || path_1.default.isAbsolute(relative)) {
+            throw new Error(`Security Violation: ${virtualPath}`);
+        }
+        const rootDir = relative.split(path_1.default.sep)[0];
         if (!(rootDir in PERMISSIONS)) {
-            throw new Error(`Access denied: Directory '${rootDir}' is not managed.`);
+            throw new Error(`Access Denied: Directory '${rootDir}' is not allowed`);
         }
         if (allowWrite && PERMISSIONS[rootDir] === 'read') {
-            throw new Error(`Permission denied: '${rootDir}' is READ-ONLY.`);
-        }
-        const absolutePath = path_1.default.resolve(PROJECT_ROOT, normalizedPath);
-        if (!absolutePath.startsWith(PROJECT_ROOT)) {
-            throw new Error(`Security violation: Path traversal detected.`);
+            throw new Error(`Permission Denied: Directory '${rootDir}' is READ-ONLY`);
         }
         return absolutePath;
     }
@@ -53,12 +65,11 @@ class FileSystemManager {
     }
     async writeFile(virtualPath, content) {
         const fullPath = this.validatePath(virtualPath, true);
-        await promises_1.default.mkdir(path_1.default.dirname(fullPath), { recursive: true });
-        await promises_1.default.writeFile(fullPath, content, 'utf-8');
+        await this.ensureDirAndWrite(fullPath, content);
         return `Successfully wrote to ${virtualPath}`;
     }
     /**
-     * coopration
+     * cooperation
      * @param virtualPath
      * @param sender
      * @param content
@@ -68,20 +79,46 @@ class FileSystemManager {
         const fullPath = this.validatePath(virtualPath, true);
         const timestamp = new Date().toLocaleTimeString();
         const formattedEntry = `\n---\n### [${timestamp}] ${sender}:\n${content}\n`;
-        await promises_1.default.appendFile(fullPath, formattedEntry, 'utf-8');
+        await this.ensureDirAndWrite(fullPath, formattedEntry, true);
         return `Successfully added to blackboard.`;
     }
-    async readBlackboard(virtualPath) {
+    async readBlackboard(virtualPath, readAll = false) {
         try {
             const rawText = await this.readFile(virtualPath);
             const allBlocks = rawText.split('###').map(b => b.trim()).filter(b => b !== "");
             if (allBlocks.length === 0)
                 return "The blackboard is now empty";
-            const lastBlocks = allBlocks.slice(-3);
-            return lastBlocks.map(block => `### ${block}`).join('\n\n');
+            if (readAll) {
+                return rawText;
+            }
+            else {
+                const lastBlocks = allBlocks.slice(-3);
+                return lastBlocks.map(block => `### ${block}`).join('\n\n');
+            }
         }
         catch (error) {
             return "the blackboard hasnt been established, waiting for the first expert.";
+        }
+    }
+    stateFilePath = path_1.default.join(PROJECT_ROOT, '.state/.opengravity_state.json');
+    async saveState(state) {
+        const data = JSON.stringify(state, null, 2);
+        await this.ensureDirAndWrite(this.stateFilePath, data);
+    }
+    async loadState() {
+        try {
+            const data = await promises_1.default.readFile(this.stateFilePath, 'utf-8');
+            return JSON.parse(data);
+        }
+        catch (error) {
+            return {
+                topic: "未定义",
+                rounds: 0,
+                maxRounds: 3,
+                lastSender: null,
+                nextSender: 'Architect',
+                isFinished: false
+            };
         }
     }
 }
