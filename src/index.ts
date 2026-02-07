@@ -13,6 +13,10 @@ const server = new McpServer({
 
 const fsManager = new FileSystemManager();
 
+/**
+ * 工具注册：文件工具
+ */
+
 server.registerTool(
     "list_directory",
     { 
@@ -97,6 +101,10 @@ server.registerTool(
         }
     }
 );
+
+/**
+ * 提示词注册：文件处理相关提示词
+ */
 
 server.registerPrompt(
     "code_review",
@@ -258,6 +266,241 @@ server.registerPrompt(
         };
     }
 );
+
+/**
+ * 多AI协作假实现
+ */
+
+server.registerPrompt(
+    "council_meeting",
+    {
+        description: "Simulate a high-level technical committee meeting with a Historian for summary.",
+        argsSchema: {
+            topic: z.string().describe("The technical topic or problem to discuss"),
+            rounds: z.string().default("3").describe("Depth of discussion (default: 3)"),
+            save_path: z.string().default("brainstorm/meeting_minutes.md").describe("Where to save the minutes")
+        }
+    },
+    ({ topic, rounds, save_path }) => {
+        const roundCount = parseInt(rounds) || 3;
+        const date = new Date().toISOString().split('T')[0]; // 获取当前日期
+
+        let dynamicPrompt = `你现在是 Opengravity 的中央处理器。
+我们需要对主题："${topic}" 召开一次最高级别的技术委员会会议。
+
+请你一人分饰四角，完全沉浸在以下角色中：
+
+🔴 **[Architect - 架构师]**
+- **风格**: 极客、理想主义。
+- **任务**: 提出最具前瞻性、最优雅的技术方案，无视成本。
+
+🔵 **[Critic - 守门人]**
+- **风格**: 悲观、尖刻。
+- **任务**: 预设所有系统都会崩溃，无情攻击 Architect 的方案漏洞。
+
+🟢 **[Zen - 决策者]**
+- **风格**: 务实、商业化。
+- **任务**: 平衡理想与现实，做出最终拍板。
+
+📜 **[Historian - 史官]**
+- **风格**: 客观、精准、结构化。
+- **任务**: 全程旁听不发言，只在会议结束时整理 **Markdown 纪要** 并存档。
+
+--- 会议正式开始 --- \n\n`;
+
+        for (let i = 1; i <= roundCount; i++) {
+            dynamicPrompt += `### 第 ${i} 轮辩论 (Round ${i}/${roundCount})\n`;
+            
+            if (i === 1) {
+                dynamicPrompt += `- **[Architect]**: 抛开限制，提出一个最大胆的理想架构方案。\n`;
+                dynamicPrompt += `- **[Critic]**: 冷笑，列出该方案在现实中绝对会失败的 3 个致命理由。\n`;
+                dynamicPrompt += `- **[Zen]**: 承认愿景，但同意担忧，要求下一轮讨论落地细节。\n\n`;
+            } 
+            else if (i === roundCount) {
+                dynamicPrompt += `- **[Architect]**: (妥协后) 提出修改版方案，牺牲优雅性换取可行性。\n`;
+                dynamicPrompt += `- **[Critic]**: (勉强接受) 指出修改版虽然丑但安全，补充监控建议。\n`;
+                dynamicPrompt += `- **[Zen]**: 拍板决定技术路线，宣布散会。\n\n`;
+            } 
+            else {
+                dynamicPrompt += `- **[Architect]**: 针对质疑进行技术反击。\n`;
+                dynamicPrompt += `- **[Critic]**: 抓住反击中的逻辑漏洞追问细节。\n`;
+                dynamicPrompt += `- **[Zen]**: 强行打断，记录共识，引导下一个分歧点。\n\n`;
+            }
+        }
+
+        dynamicPrompt += `### 归档阶段
+现在辩论结束。请 **[Historian]** 接管控制台，整理上述对话。
+
+请严格按照以下 Markdown 格式生成内容，并调用 write_file 工具保存到 "${save_path}"：
+
+# Technical Council Minutes: ${topic}
+> **Date**: ${date}
+> **Moderator**: Zen
+
+## 1. Executive Summary (决策摘要)
+(在此处用 100 字概括 Zen 的最终决定)
+
+## 2. Key Conflicts (关键分歧)
+| 提出者 | 观点 | 反驳者 | 担忧点 |
+|---|---|---|---|
+| Architect | ... | Critic | ... |
+| ... | ... | ... | ... |
+
+## 3. Final Action Plan (行动清单)
+- [ ] (Zen 的具体要求 1)
+- [ ] (Zen 的具体要求 2)
+- [ ] (Critic 的监控建议)
+
+## 4. Transcript (对话实录)
+(在此处保留上述精彩的对话原文)`;
+
+        return {
+            messages: [
+                {
+                    role: "user",
+                    content: {
+                        type: "text",
+                        text: dynamicPrompt
+                    }
+                }
+            ]
+        };
+    }
+);
+
+/**
+ * 多AI协作真实现
+ */
+// src/index.ts
+
+server.registerTool(
+    'post_to_blackboard',
+    {
+        description: 'An expert adds their opinion to the shared blackboard. MUST provide the sender name.',
+        inputSchema: {
+            path: z.string().describe('The path of the blackboard file.'),
+            sender: z.enum(['Architect', 'Critic', 'Zen']).describe("Who is speaking?"),
+            content: z.string().describe('The detailed opinion of the expert.'),
+        }
+    },
+    async ({ path, sender, content }) => {
+        try {
+            server.sendLoggingMessage({
+                level: "info",
+                data: `[Blackboard] ${sender} is writing their thoughts...`
+            });
+            const message = await fsManager.appendToBlackboard(path, sender, content);
+            return {
+                content: [{
+                    type: "text",
+                    text: `✅ ${message}\n\n[SYSTEM INSTRUCTION]: 记录已完成。请立即调用 read_file 查看 ${path} 的最新内容，评估讨论进度，并决定下一位专家该如何回应。`
+                }]
+            };
+        } catch (error: any) {
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error editing blackboard: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+server.registerTool(
+    'read_blackboard',
+    {
+        description: 'Read the current content of the shared blackboard.',
+        inputSchema: {
+            path: z.string().describe('The path of the blackboard file.')
+        }
+    },
+    async ({ path }) => {
+        try {
+            const content = await fsManager.readBlackboard(path);
+            return {
+                content: [{
+                    type: "text",
+                    text: content
+                }]
+            };
+        } catch (error: any) {
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error reading blackboard: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+server.registerPrompt(
+    "discuss",
+    {
+        description: "Facilitate a multi-agent discussion on a technical topic using a shared blackboard.",
+        argsSchema: {
+            topic: z.string().describe("The technical topic or problem to discuss"),
+            rounds: z.string().default("3").describe("Depth of discussion (default: 3)"),
+            blackboard_path: z.string().default("daily/system_bus.log").describe("The path of the shared blackboard file"),
+            summary_path: z.string().default("brainstorm/meeting_minutes.md").describe("Where to save the final summary")
+        }
+    },
+    ({ topic, rounds, blackboard_path, summary_path }) => {
+        const roundCount = parseInt(rounds) || 3;
+        const date = new Date().toISOString().split('T')[0];
+
+        const script = `
+# 系统指令：Opengravity 自动编排模式启动
+
+你现在不再仅仅是一个对话模型，你是 **Opengravity 多智能体环境的调度员**。你的任务是针对主题 "${topic}" 协调三位专家进行 ${roundCount} 轮深度辩论。
+
+### 📋 运行协议 (执行逻辑流)
+
+你必须按照以下逻辑循环执行，**不要停下来询问我，直到整个流程结束**：
+
+1. **观察 (Observe)**: 
+   - 调用 \`read_blackboard\` 读取 "${blackboard_path}"。
+   - 如果返回 "黑板尚未创建"，则视为讨论开始。
+
+2. **判断 (Judge)**: 
+   - 检查目前黑板上已有的发言轮数（### 标记的数量）。
+   - **如果轮数 < ${roundCount * 3}** (即每人均未完成 ${roundCount} 次发言)：
+     - 如果最后一位是 Zen，或黑板为空：轮到 **[Architect]** 发言。
+     - 如果最后一位是 Architect：轮到 **[Critic]** 发言。
+     - 如果最后一位是 Critic：轮到 **[Zen]** 发言。
+   - **如果轮数 >= ${roundCount * 3}**:
+     - 轮到 **[Historian]** 进行全案总结。
+
+3. **行动 (Act)**:
+   - **专家发言**：扮演相应的专家，结合黑板上的历史背景，提出深度见解。
+   - **存档**：发言完成后，立即调用 \`post_to_blackboard\`，并在 sender 字段填入当前专家名。
+   - **总结**：如果是 Historian，请整理最终报告并调用 \`write_file\` 保存至 "${summary_path}"。
+
+4. **递归循环 (The Loop) - [重要]**:
+   - **每当你调用 \`post_to_blackboard\` 成功后，你必须根据返回的指令，立即再次从“步骤1”开始，直到 Historian 完成存档。**
+
+---
+
+### 🎭 专家设定
+
+- **[Architect]**: 愿景驱动，侧重系统设计、扩展性和前瞻性技术。
+- **[Critic]**: 风险驱动，侧重安全性、落地难度、成本和潜在漏洞。
+- **[Zen]**: 价值驱动，侧重平衡矛盾、寻找共识、提取可执行的结论。
+
+---
+现在，请开始第一次 \`read_blackboard\` 操作。
+`;
+
+        return {
+            messages: [{ role: "user", content: { type: "text", text: script } }]
+        };
+    }
+);
+
+/**
+ * 服务器启动
+ */
 
 async function main() {
     const transport = new StdioServerTransport();
