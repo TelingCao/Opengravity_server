@@ -172,10 +172,10 @@ server.registerTool(
             path: z.string().describe('The path of the blackboard file.write to .cooperation/blackboard_YYYY_MM_DD.md'),
             sender: z.enum(SENDER_NAMES).describe("Who is speaking?"),
             content: z.string().describe('The detailed opinion of the expert.'),
-            maxRounds: z.string().default('3').describe('The max round number of discussion')
+            //maxRounds: z.string().default('3').describe('The max round number of discussion')
         }
     },
-    async ({ path, sender, content, maxRounds }) => POST_TO_BLACKBOARD(fsManager, { path, sender, content, maxRounds })
+    async ({ path, sender, content }) => POST_TO_BLACKBOARD(fsManager, { path, sender, content })
 );
 
 server.registerTool(
@@ -183,10 +183,11 @@ server.registerTool(
     {
         description: 'Read the current content of the shared blackboard.',
         inputSchema: {
-            path: z.string().describe('The path of the blackboard file in .cooperation/blackboard_YYYY_MM_DD.md')
+            path: z.string().describe('The path of the blackboard file in .cooperation/blackboard_YYYY_MM_DD.md'),
+            readAll: z.boolean().default(false).describe('Whether to read full content')
         }
     },
-    async ({ path }) => READ_BLACKBOARD(fsManager, { path })
+    async ({ path, readAll }) => READ_BLACKBOARD(fsManager, { path, readAll })
 );
 
 server.registerPrompt(
