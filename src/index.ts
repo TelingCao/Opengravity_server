@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // src/index.ts
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -30,7 +31,7 @@ server.registerTool(
             path: z.enum(ALLOWED_DIRECTORIES).describe("The directory to list (e.g., 'notes', 'codes')") 
         }
     },
-    async ({ path }) => LIST_DIR(fsManager, { path })
+    async ({ path }: { path: any }) => LIST_DIR(fsManager, { path })
 );
 
 server.registerTool(
@@ -41,7 +42,7 @@ server.registerTool(
             path: z.string().describe("The path of the file to read (e.g., 'codes/main.c', 'notes/program_designing.md')")
         }
     },
-    async ({ path }) => READ_FILE(fsManager, { path })
+    async ({ path }: { path: string}) => READ_FILE(fsManager, { path })
 );
 
 server.registerTool(
@@ -53,7 +54,7 @@ server.registerTool(
             content: z.string().describe("The actual text content to write into the file")
         }
     },
-    async ({ path, content }) => WRITE_FILE(fsManager, { path, content })
+    async ({ path, content }: { path: string, content: string }) => WRITE_FILE(fsManager, { path, content })
 );
 
 /**
@@ -68,7 +69,7 @@ server.registerPrompt(
             path: z.string().describe("The path of the code file to review")
         }
     },
-    ({ path }) => {
+    ({ path }: { path: string }) => {
         const reviewPrompt = CODE_REVIEW(path);
 
         return {
@@ -93,7 +94,7 @@ server.registerPrompt(
             path: z.string().describe("The path of the note file to reflect on (e.g., 'notes/meeting_2023_11_10.md')")
         }
     },
-    ({ path }) => {
+    ({ path }: { path: string }) => {
         const reviewPrompt = REFLECT(path);
 
         return {
@@ -118,7 +119,7 @@ server.registerPrompt(
             path: z.string().describe("The path of the file to brainstorm about (e.g., 'notes/project_idea.md')")
         }
     },
-    ({ path }) => {
+    ({ path }: { path: string }) => {
         const reviewPrompt = BRAINSTORM(path);
 
         return {
@@ -143,7 +144,7 @@ server.registerPrompt(
             path: z.string().describe("The path of the diary file to reflect on (e.g., 'daily/daily_2023_11_10.md')")
         }
     },
-    ({ path }) => {
+    ({ path }: { path: string }) => {
         const reviewPrompt = KICKSTART(path);
 
         return {
@@ -175,7 +176,7 @@ server.registerTool(
             //maxRounds: z.string().default('3').describe('The max round number of discussion')
         }
     },
-    async ({ path, sender, content }) => POST_TO_BLACKBOARD(fsManager, { path, sender, content })
+    async ({ path, sender, content }: { path: any, sender: any, content: string}) => POST_TO_BLACKBOARD(fsManager, { path, sender, content })
 );
 
 server.registerTool(
@@ -187,7 +188,7 @@ server.registerTool(
             readAll: z.boolean().default(false).describe('Whether to read full content')
         }
     },
-    async ({ path, readAll }) => READ_BLACKBOARD(fsManager, { path, readAll })
+    async ({ path, readAll }: { path: string, readAll: boolean}) => READ_BLACKBOARD(fsManager, { path, readAll })
 );
 
 server.registerPrompt(
@@ -201,7 +202,7 @@ server.registerPrompt(
             summary_path: z.string().default("brainstorm/meeting_minutes.md").describe("Where to save the final summary")
         }
     },
-    async ({ topic, maxRounds, blackboard_path }) => {
+    async ({ topic, maxRounds, blackboard_path }: { topic: string, maxRounds: string, blackboard_path: string}) => {
         const maxR = parseInt(maxRounds) || 3;
 
         await fsManager.saveState({
@@ -226,6 +227,8 @@ server.registerPrompt(
  */
 
 async function main() {
+    await fsManager.initEnvironment();
+
     const transport = new StdioServerTransport();
 
     await server.connect(transport);

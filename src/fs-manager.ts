@@ -2,10 +2,11 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-const PROJECT_ROOT = path.resolve(__dirname, '..');
+// const PROJECT_ROOT = path.resolve(__dirname, '..');
+const PROJECT_ROOT = process.cwd();
 
 export const ALLOWED_DIRECTORIES = [
-    'codes', 'reviews', 'notes', 'brainstorm', 'daily', 'todo', '.cooperation'
+    'codes', 'reviews', 'notes', 'brainstorm', 'daily', 'todo', '.cooperation', '.state'
 ] as const;
 export type AllowedDirectory = (typeof ALLOWED_DIRECTORIES)[number];
 
@@ -13,13 +14,14 @@ export const SENDER_NAMES = ['Architect', 'Critic', 'Zen', 'Historian'] as const
 export type Senders = (typeof SENDER_NAMES)[number];
 
 const PERMISSIONS: Record<AllowedDirectory, 'read' | 'write'> = {
-    'codes'     : 'read',
-    'reviews'   : 'write',
-    'notes'     : 'read',
-    'brainstorm': 'write',
-    'daily'     : 'read',
-    'todo'      : 'write',
-    '.cooperation': 'write'
+    'codes'       : 'read',
+    'reviews'     : 'write',
+    'notes'       : 'read',
+    'brainstorm'  : 'write',
+    'daily'       : 'read',
+    'todo'        : 'write',
+    '.cooperation': 'write',
+    '.state'      : 'read'
 };
 
 
@@ -33,6 +35,21 @@ interface DiscussionState {
 }
 
 export class FileSystemManager {
+
+    async initEnvironment() {
+        console.error("🛠️  Initializing Opengravity environment...");
+        try {
+            for (const dir of ALLOWED_DIRECTORIES) {
+                const fullPath = path.resolve(PROJECT_ROOT, dir);
+                await fs.mkdir(fullPath, { recursive: true });
+            }
+            await fs.mkdir(path.dirname(this.stateFilePath), { recursive: true });
+            console.error("✅ Environment ready.");
+        } catch (error: any) {
+            console.error(`❌ Initialization failed: ${error.message}`);
+            process.exit(1);
+        }
+    }
 
     private async ensureDirAndWrite(fullPath: string, content: string, append: boolean = false) {
         await fs.mkdir(path.dirname(fullPath), { recursive: true });

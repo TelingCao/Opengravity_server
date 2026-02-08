@@ -7,9 +7,10 @@ exports.FileSystemManager = exports.SENDER_NAMES = exports.ALLOWED_DIRECTORIES =
 // src/fs-manager.ts
 const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
-const PROJECT_ROOT = path_1.default.resolve(__dirname, '..');
+// const PROJECT_ROOT = path.resolve(__dirname, '..');
+const PROJECT_ROOT = process.cwd();
 exports.ALLOWED_DIRECTORIES = [
-    'codes', 'reviews', 'notes', 'brainstorm', 'daily', 'todo', '.cooperation'
+    'codes', 'reviews', 'notes', 'brainstorm', 'daily', 'todo', '.cooperation', '.state'
 ];
 exports.SENDER_NAMES = ['Architect', 'Critic', 'Zen', 'Historian'];
 const PERMISSIONS = {
@@ -19,9 +20,25 @@ const PERMISSIONS = {
     'brainstorm': 'write',
     'daily': 'read',
     'todo': 'write',
-    '.cooperation': 'write'
+    '.cooperation': 'write',
+    '.state': 'read'
 };
 class FileSystemManager {
+    async initEnvironment() {
+        console.error("🛠️  Initializing Opengravity environment...");
+        try {
+            for (const dir of exports.ALLOWED_DIRECTORIES) {
+                const fullPath = path_1.default.resolve(PROJECT_ROOT, dir);
+                await promises_1.default.mkdir(fullPath, { recursive: true });
+            }
+            await promises_1.default.mkdir(path_1.default.dirname(this.stateFilePath), { recursive: true });
+            console.error("✅ Environment ready.");
+        }
+        catch (error) {
+            console.error(`❌ Initialization failed: ${error.message}`);
+            process.exit(1);
+        }
+    }
     async ensureDirAndWrite(fullPath, content, append = false) {
         await promises_1.default.mkdir(path_1.default.dirname(fullPath), { recursive: true });
         if (append) {

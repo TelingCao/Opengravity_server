@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 // src/index.ts
@@ -161,6 +162,7 @@ server.registerPrompt("discuss", {
  * 服务器启动
  */
 async function main() {
+    await fsManager.initEnvironment();
     const transport = new stdio_js_1.StdioServerTransport();
     await server.connect(transport);
     console.error("Opengravity Server is running on stdio...");
