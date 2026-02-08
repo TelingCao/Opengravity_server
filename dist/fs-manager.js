@@ -3,12 +3,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FileSystemManager = exports.SENDER_NAMES = exports.ALLOWED_DIRECTORIES = void 0;
+exports.FileSystemManager = exports.SENDER_NAMES = exports.ALLOWED_DIRECTORIES = exports.PROJECT_ROOT = void 0;
 // src/fs-manager.ts
 const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
-// const PROJECT_ROOT = path.resolve(__dirname, '..');
-const PROJECT_ROOT = process.cwd();
+const userProvidedPath = process.argv[2] || process.env.OPENGRAVITY_DIR;
+// 如果用户传了路径，解析为绝对路径；否则用 cwd
+exports.PROJECT_ROOT = userProvidedPath
+    ? path_1.default.resolve(userProvidedPath)
+    : path_1.default.resolve(__dirname, '..');
+// 为了调试和录视频，强烈建议在加载时打印出来
+console.error(`🏠 Opengravity Workspace Root: ${exports.PROJECT_ROOT}`);
+//const PROJECT_ROOT = path.resolve(__dirname, '..');
+// const PROJECT_ROOT = process.cwd();
 exports.ALLOWED_DIRECTORIES = [
     'codes', 'reviews', 'notes', 'brainstorm', 'daily', 'todo', '.cooperation', '.state'
 ];
@@ -28,7 +35,7 @@ class FileSystemManager {
         console.error("🛠️  Initializing Opengravity environment...");
         try {
             for (const dir of exports.ALLOWED_DIRECTORIES) {
-                const fullPath = path_1.default.resolve(PROJECT_ROOT, dir);
+                const fullPath = path_1.default.resolve(exports.PROJECT_ROOT, dir);
                 await promises_1.default.mkdir(fullPath, { recursive: true });
             }
             await promises_1.default.mkdir(path_1.default.dirname(this.stateFilePath), { recursive: true });
@@ -49,8 +56,8 @@ class FileSystemManager {
         }
     }
     validatePath(virtualPath, allowWrite) {
-        const absolutePath = path_1.default.resolve(PROJECT_ROOT, virtualPath);
-        const relative = path_1.default.relative(PROJECT_ROOT, absolutePath);
+        const absolutePath = path_1.default.resolve(exports.PROJECT_ROOT, virtualPath);
+        const relative = path_1.default.relative(exports.PROJECT_ROOT, absolutePath);
         if (relative.startsWith('..') || path_1.default.isAbsolute(relative)) {
             throw new Error(`Security Violation: ${virtualPath}`);
         }
@@ -117,7 +124,7 @@ class FileSystemManager {
             return "the blackboard hasnt been established, waiting for the first expert.";
         }
     }
-    stateFilePath = path_1.default.join(PROJECT_ROOT, '.state/.opengravity_state.json');
+    stateFilePath = path_1.default.join(exports.PROJECT_ROOT, '.state/.opengravity_state.json');
     async saveState(state) {
         const data = JSON.stringify(state, null, 2);
         await this.ensureDirAndWrite(this.stateFilePath, data);
