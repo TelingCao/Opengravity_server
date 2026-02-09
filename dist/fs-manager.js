@@ -8,14 +8,10 @@ exports.FileSystemManager = exports.SENDER_NAMES = exports.ALLOWED_DIRECTORIES =
 const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
 const userProvidedPath = process.argv[2] || process.env.OPENGRAVITY_DIR;
-// 如果用户传了路径，解析为绝对路径；否则用 cwd
 exports.PROJECT_ROOT = userProvidedPath
     ? path_1.default.resolve(userProvidedPath)
     : path_1.default.resolve(__dirname, '..');
-// 为了调试和录视频，强烈建议在加载时打印出来
 console.error(`🏠 Opengravity Workspace Root: ${exports.PROJECT_ROOT}`);
-//const PROJECT_ROOT = path.resolve(__dirname, '..');
-// const PROJECT_ROOT = process.cwd();
 exports.ALLOWED_DIRECTORIES = [
     'codes', 'reviews', 'notes', 'brainstorm', 'daily', 'todo', '.cooperation', '.state'
 ];
